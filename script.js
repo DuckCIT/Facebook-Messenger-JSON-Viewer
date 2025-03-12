@@ -9,11 +9,17 @@ document.getElementById("settingsIcon").addEventListener("click", () => {
 // Handle file upload
 document.getElementById("fileInput").addEventListener("change", handleFileUpload);
 
+let currentJsonFileName = null;
+
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    resetMedia();
+    if (currentJsonFileName && currentJsonFileName !== file.name) {
+        resetMedia();
+    }
+
+    currentJsonFileName = file.name;
 
     const options = document.getElementsByClassName("options")[0];
     const loading = document.getElementById("loading");
