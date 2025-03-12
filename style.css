@@ -257,8 +257,9 @@ img, video {
     height: 100%;
     justify-content: center;
     align-items: center;
-    display: flex;
+    display: block;
     color: #666;
+    margin-bottom: 20px;
 }
 
 /* Footer */
@@ -311,19 +312,25 @@ img, video {
         flex-direction: column;
         display: flex;
         align-items: center;
+        height: auto;
     }
 
     .chat-container {
-        display: block;
-        width: 90%;
-        min-height: 100vh;
+        display: flex;
+        width: auto;
+        min-width: calc(100% - 20px);
+        border-radius: 0;
+        box-shadow: none;
         margin-top: 10px;
+        max-height: 100%;
     }
 
     .settings {
-        width: 90%;
-        min-height: 90%;
-        margin: 10px;   
+        width: auto;
+        max-height: 100%;
+        margin: 0px;
+        border-radius: 0;
+        box-shadow: none;
     }
 
     #settingsIcon {
