@@ -13,6 +13,8 @@ function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
+    resetMedia();
+
     const options = document.getElementsByClassName("options")[0];
     const loading = document.getElementById("loading");
     const chatContainer = document.getElementById("chat");
@@ -176,6 +178,16 @@ mediaFolderInput.addEventListener("change", function(event) {
         renderMessages(window.currentChatData, document.querySelector('input[name="choice"]:checked').value);
     }
 });
+
+function resetMedia() {
+    const showMediaCheckbox = document.getElementById("showMedia");
+    showMediaCheckbox.checked = false;
+
+    Object.values(mediaFiles).forEach(url => URL.revokeObjectURL(url));
+
+    mediaFiles = {};
+    mediaTypes = {};
+}
 
 function getMediaType(filename) {
     const extension = filename.split('.').pop().toLowerCase();
