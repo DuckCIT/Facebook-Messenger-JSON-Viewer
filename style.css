@@ -1,0 +1,332 @@
+*::-webkit-scrollbar {
+    width: 6px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #b8b8b8;
+    margin-top: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+*::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f0f2f5;
+    margin: 0;
+}
+
+/* Typography */
+h3 {
+    margin: 15px;
+    position: relative;
+    font-size: 16px;
+}
+
+.settings strong {
+    font-size: 16px;
+    color: #333;
+}
+
+.settings small {
+    color: #666;
+    font-size: 14px;
+}
+.placeholder {
+    width: 150px;
+    height: 60px;
+    display: flex;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    background-color: #ddd;
+    color: #555;
+    font-size: 14px;
+    border: 2px dashed #aaa;
+    text-align: center;
+    margin: 5px;
+}
+
+.media-preview { display: inline-block; }
+
+.preview {
+    max-width: 250px; 
+    max-height: 200px;
+    object-fit: cover;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.preview:hover {
+    transform: scale(1.05); /* Phóng to khi hover */
+}
+.preview-video {
+    max-width: 250px;
+    max-height: 300px;
+}
+
+/* Layout */
+#line {
+    border-bottom: 1.5px solid #ddd;
+}
+
+.container {
+    display: grid;
+    grid-template-columns: 3fr 7fr;
+    height: 100vh;
+}
+
+/* Settings Panel */
+.settings {
+    margin: 20px 0 20px 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    max-height: calc(100vh - 40px); 
+    overflow: auto;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+#tips {
+    color: #666;
+    font-size: 12px;
+    font-style: italic;
+    margin-top: 8px;
+    display: block;
+}
+
+.settings hr {
+    border: none;
+    height: 1px;
+    background: #ddd;
+}
+
+.settings input[type="file"] {
+    margin: 10px 0;
+    padding: 5px;
+    display: block;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: #f8f8f8;
+    cursor: pointer;
+}
+
+.choiceForm {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.settings form {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+.settings label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.settings input[type="checkbox"] {
+    transform: scale(1.2);
+    cursor: pointer;
+}
+
+/* Settings Icon */
+#settingsIcon {
+    display: none;
+    cursor: pointer;
+    position: absolute;
+    right: 10px;
+}
+
+/* Chat Container */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    width: calc(100% - 60px);
+    margin: 20px auto;
+    background: white;
+    padding: 0 10px;
+    border-radius: 10px;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+#chat {
+    overflow-y: auto;
+    max-height: 80vh;
+    padding: 10px;
+}
+
+/* Message */
+.message {
+    margin: 5px;
+    padding: 10px 15px;
+    border-radius: 15px;
+    max-width: 70%;
+    width: fit-content;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+.from-me {
+    background: #0084ff;
+    color: white;
+    text-align: right;
+    margin-left: auto;
+}
+
+.from-them {
+    background: #e4e6eb;
+    color: black;
+    text-align: left;
+    margin-right: auto;
+}
+
+.sender-name {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.from-me .sender-name {
+    color: #ffffff;
+    margin-left: 10px;
+    display: none;
+}
+
+.from-them .sender-name {
+    color: #000000;
+    margin-right: 10px;
+}
+
+.message-content {
+    line-height: 1.4;
+}
+
+.from-me .message-content {
+    color: #f0f8ff;
+    text-align: left;
+}
+
+.from-them .message-content {
+    color: #333333;
+}
+
+.reaction {
+    font-size: 14px;
+    margin-top: 5px;
+    text-align: right;
+}
+
+.timestamp {
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+.from-me .timestamp {
+    color: #d1e4ff;
+    text-align: right;
+}
+
+.from-them .timestamp {
+    color: #606770;
+}
+
+/* Image */
+img, video {
+    max-width: 100%;
+    border-radius: 10px;
+    margin-top: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    object-fit: cover;
+}
+
+/* Loading */
+#loading {
+    text-align: center;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+    color: #666;
+}
+
+/* Footer */
+.footer {
+    margin: 5px 0;
+    display: block;
+    color: #666;
+}
+
+.footer a {
+    color: #1877f2;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    text-decoration: underline;
+}
+
+/* Options */
+.options {
+    display: none;
+}
+
+.options strong {
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* Download Info */
+.download-info strong {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.download-info a {
+    display: block;
+    color: #1877f2;
+    font-size: 0.9em;
+    text-decoration: none;
+    margin: 6px 0;
+}
+
+.download-info a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+        display: flex;
+        align-items: center;
+    }
+
+    .chat-container {
+        display: block;
+        width: 90%;
+        min-height: 100vh;
+        margin-top: 10px;
+    }
+
+    .settings {
+        width: 90%;
+        min-height: 90%;
+        margin: 10px;   
+    }
+
+    #settingsIcon {
+        display: inline-block;
+    }
+}

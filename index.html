@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook Messenger JSON Viewer</title>
+    <link rel="icon" href="./assets/icon.png" type="image/x-icon">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Settings Section -->
+        <div class="settings">
+            <strong>Facebook Messenger JSON Viewer</strong>
+            <br>
+            <small class="footer">
+                © 2025 DuckCIT. All rights reserved |
+                <a href="https://github.com/DuckCIT/Facebook-Messenger-JSON-Viewer" target="_blank">Src & Usage</a>
+            </small>
+            <hr>
+            <small>Select a Messenger JSON file to view</small>
+            <input type="file" id="fileInput" accept=".json">
+
+            <label>
+                <input type="checkbox" id="showMedia">
+                Allow access to MEDIA folder
+            </label>
+            <input type="file" id="mediaFolder" webkitdirectory directory style="display: none;">
+            <small id="tips">if you want to see images or videos, check the box and select a folder, uploading the media
+                folder first helps improve performance and prevents repeated rendering of messages.</small>
+
+            <!-- Display Options -->
+            <div class="options">
+                <hr>
+                <span><strong>View from the perspective of:</strong></span>
+                <form id="radioForm" class="choiceForm"></form>
+
+                <hr>
+                <span><strong>Customization</strong></span>
+                <form>
+                    <label>
+                        <input type="checkbox" id="showMyName">
+                        Show my name
+                    </label>
+                    <label>
+                        <input type="checkbox" id="showTheirName" checked>
+                        Show their name
+                    </label>
+                    <label>
+                        <input type="checkbox" id="showTime">
+                        Show timestamps
+                    </label>
+                    <label>
+                        <input type="checkbox" id="showReacts" checked>
+                        Show reactions
+                    </label>
+                </form>
+            </div>
+
+            <!-- Download Information -->
+            <hr>
+            <div class="download-info">
+                <strong>How to download Messenger JSON</strong>
+                <a href="https://www.facebook.com/help/212802592074644" target="_blank">
+                    Download a copy of your Facebook information
+                </a>
+                <a href="https://www.facebook.com/help/messenger-app/677912386869109" target="_blank">
+                    Download your data from Messenger end-to-end encrypted chats
+                </a>
+            </div>
+        </div>
+
+        <!-- Chat Section -->
+        <div class="chat-container">
+            <h3>
+                Conversation: <span id="threadName">unknown</span>
+                <span id="settingsIcon">⇕</span>
+            </h3>
+            <div id="line"></div>
+            <div id="chat"></div>
+            <div id="loading">No data available</div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
