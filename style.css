@@ -245,7 +245,7 @@ h3 {
 img, video {
     max-width: 100%;
     border-radius: 10px;
-    margin-top: 5px;
+    margin: 5px;
     cursor: pointer;
     transition: all 0.3s ease;
     object-fit: cover;
@@ -257,9 +257,12 @@ img, video {
     height: 100%;
     justify-content: center;
     align-items: center;
-    display: block;
+    display: flex;
     color: #666;
     margin-bottom: 20px;
+}
+.message-chunk {
+    min-height: 100px;
 }
 
 /* Footer */

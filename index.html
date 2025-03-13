@@ -22,12 +22,8 @@
             <hr>
             <small>Select a Messenger JSON file to view</small>
             <input type="file" id="fileInput" accept=".json">
-
-            <label>
-                <input type="checkbox" id="showMedia">
-                Allow access to MEDIA folder
-            </label>
-            <input type="file" id="mediaFolder" webkitdirectory directory style="display: none;">
+            <small>Allow access to MEDIA folder<br>(Read the small words below)</small>
+            <input type="file" id="mediaFolder" webkitdirectory directory >
             <small id="tips">if you want to see images or videos, check the box and select a folder, uploading the media
                 folder first helps improve performance and prevents repeated rendering of messages.</small>
 

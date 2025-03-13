@@ -10,13 +10,16 @@ document.getElementById("settingsIcon").addEventListener("click", () => {
 document.getElementById("fileInput").addEventListener("change", handleFileUpload);
 
 let currentJsonFileName = null;
+const CHUNK_SIZE = 50;
+let renderedMessages = new Map();
+let observer = null;
 
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     if (currentJsonFileName && currentJsonFileName !== file.name) {
-        resetMedia();
+        //resetMedia();
     }
 
     currentJsonFileName = file.name;
@@ -48,7 +51,7 @@ function processFileContent(content) {
             });
             const decoded = decodeURIComponent(escape(replaced));
             data = JSON.parse(decoded);
-            data.messages = data.messages.reverse(); 
+            data.messages = data.messages.reverse();
         } else {
             data = JSON.parse(content);
         }
@@ -118,79 +121,126 @@ function setupCheckboxListeners() {
 function renderMessages(data, selectedValue) {
     const chatContainer = document.getElementById("chat");
     const loading = document.getElementById("loading");
+    
+    chatContainer.style.display = "none";
+    loading.innerHTML = "Loading messages...";
+    loading.style.display = "flex";
+    
+    if (observer) {
+        observer.disconnect();
+    }
+    
+    renderedMessages.clear();
     chatContainer.innerHTML = "";
-
+    
     if (!data.messages.length) {
         loading.innerHTML = "No messages";
+        chatContainer.style.display = "block";
         return;
     }
-    loading.style.display = "none";
 
-    data.messages.forEach(msg => {
+    const messageChunks = chunkArray(data.messages, CHUNK_SIZE);
+    
+    messageChunks.forEach((chunk, index) => {
+        const chunkContainer = document.createElement("div");
+        chunkContainer.classList.add("message-chunk");
+        chunkContainer.dataset.chunkIndex = index;
+        chatContainer.appendChild(chunkContainer);
+    });
+
+    observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const chunkIndex = parseInt(entry.target.dataset.chunkIndex);
+                renderChunk(chunkIndex, messageChunks[chunkIndex], selectedValue);
+            }
+        });
+    }, {
+        root: chatContainer,
+        threshold: 0.1,
+        rootMargin: "200px"
+    });
+
+    document.querySelectorAll(".message-chunk").forEach(chunk => {
+        observer.observe(chunk);
+    });
+
+    setTimeout(() => {
+        loading.style.display = "none";
+        chatContainer.style.display = "block";
+    }, 100);
+}
+
+function renderChunk(chunkIndex, messages, selectedValue) {
+    const chunkContainer = document.querySelector(`.message-chunk[data-chunk-index="${chunkIndex}"]`);
+    if (!chunkContainer || renderedMessages.has(chunkIndex)) return;
+
+    messages.forEach(msg => {
         const div = document.createElement("div");
         const sender = msg.senderName || msg.sender_name || "Unknown";
         div.classList.add("message", sender === selectedValue ? "from-me" : "from-them");
         div.innerHTML = createMessageHTML(msg);
-        chatContainer.appendChild(div);
+        chunkContainer.appendChild(div);
     });
 
+    renderedMessages.set(chunkIndex, true);
+    
     ["showTime", "showMyName", "showTheirName", "showReacts"].forEach(id => {
         document.getElementById(id).dispatchEvent(new Event("change"));
     });
 }
 
 // Media handling
-document.getElementById("showMedia").addEventListener("change", function() {
-    if (this.checked) {
-        document.getElementById("mediaFolder").click();
-    } else {
-        mediaFiles = {};
-    }
-});
-
 let mediaFiles = {};
 let mediaTypes = {};
-
-const showMediaCheckbox = document.getElementById("showMedia");
 const mediaFolderInput = document.getElementById("mediaFolder");
-
-showMediaCheckbox.addEventListener("change", function(event) {
-    if (this.checked) {
-        this.checked = false;
-    }
-});
 
 mediaFolderInput.addEventListener("change", function(event) {
     const files = event.target.files;
-
     if (!files.length) {
-        showMediaCheckbox.checked = false;
         return;
     }
 
-    mediaFiles = {};
-    mediaTypes = {};
+    const chatContainer = document.getElementById("chat");
+    const loading = document.getElementById("loading");
+    chatContainer.style.display = "none";
+    loading.innerHTML = "Processing media...";
+    loading.style.display = "flex";
 
-    Array.from(files).forEach(file => {
-        const fileURL = URL.createObjectURL(file);
-        const fileName = file.name;
-        mediaFiles[fileName] = fileURL;
-        mediaTypes[fileName] = getMediaType(fileName);
+    processMediaFiles(files).then(() => {
+        if (window.currentChatData) {
+            renderMessages(window.currentChatData, 
+                document.querySelector('input[name="choice"]:checked').value);
+            loading.style.display = "none";
+            chatContainer.style.display = "block";
+        }
     });
-
-    showMediaCheckbox.checked = true;
-
-    if (window.currentChatData) {
-        renderMessages(window.currentChatData, document.querySelector('input[name="choice"]:checked').value);
-    }
 });
 
+async function processMediaFiles(files) {
+    const BATCH_SIZE = 20;
+    const fileArray = Array.from(files);
+    
+    resetMedia();
+    
+    for (let i = 0; i < fileArray.length; i += BATCH_SIZE) {
+        const batch = fileArray.slice(i, i + BATCH_SIZE);
+        
+        await Promise.all(batch.map(file => {
+            return new Promise(resolve => {
+                const fileURL = URL.createObjectURL(file);
+                const relativePath = file.webkitRelativePath || file.name; // Preserve folder structure if available
+                mediaFiles[relativePath] = fileURL;
+                mediaTypes[relativePath] = getMediaType(file.name);
+                resolve();
+            });
+        }));
+    }
+    console.log("Media files processed:", Object.keys(mediaFiles));
+}
+
 function resetMedia() {
-    const showMediaCheckbox = document.getElementById("showMedia");
-    showMediaCheckbox.checked = false;
-
     Object.values(mediaFiles).forEach(url => URL.revokeObjectURL(url));
-
     mediaFiles = {};
     mediaTypes = {};
 }
@@ -207,16 +257,27 @@ function createMessageHTML(msg) {
     const sender = msg.senderName || msg.sender_name || "Unknown";
     const text = msg.text || msg.content || "";
     const timestamp = msg.timestamp || msg.timestamp_ms || 0;
-    const mediaItems = msg.media || msg.photos || msg.videos || msg.audio || msg.gifs || [];
+    // Combine all possible media arrays
+    const mediaItems = [].concat(
+        msg.media || [],
+        msg.photos || [],
+        msg.videos || [],
+        msg.audio || [],
+        msg.audio_files || [], // Add support for audio_files
+        msg.gifs || []
+    );
 
     return `
         <div class="sender-name">${sender}</div>
         <div class="message-content">
             ${text}
             ${mediaItems.map(media => {
-                const fileName = media.uri.split(/[\\/]/).pop();
-                const fileURL = mediaFiles[fileName];
-                const mediaType = mediaTypes[fileName] || getMediaType(fileName);
+                const fileName = media.uri.split(/[\\/]/).pop().toLowerCase(); // Normalize to lowercase
+                const matchingFile = Object.keys(mediaFiles).find(f => f.toLowerCase().endsWith(fileName));
+                const fileURL = matchingFile ? mediaFiles[matchingFile] : null;
+                // Determine media type based on file extension, overriding JSON context if needed
+                const extension = fileName.split('.').pop().toLowerCase();
+                const mediaType = extension === "mp4" ? "video" : (matchingFile ? mediaTypes[matchingFile] : getMediaType(fileName));
 
                 if (mediaType === "image") {
                     return fileURL 
@@ -239,6 +300,16 @@ function createMessageHTML(msg) {
     `;
 }
 
+function chunkArray(array, size) {
+    const result = [];
+    for (let i = 0; i < array.length; i += size) {
+        result.push(array.slice(i, i + size));
+    }
+    return result;
+}
+
 window.addEventListener("beforeunload", () => {
+    if (observer) observer.disconnect();
     Object.values(mediaFiles).forEach(url => URL.revokeObjectURL(url));
+    renderedMessages.clear();
 });
