@@ -12,59 +12,101 @@
 <body>
     <div class="container">
         <!-- Settings Section -->
-        <div class="settings">
-            <strong>Facebook Messenger JSON Viewer</strong>
-            <br>
-            <small class="footer">
-                © 2025 DuckCIT. All rights reserved |
-                <a href="https://github.com/DuckCIT/Facebook-Messenger-JSON-Viewer" target="_blank">Src & Usage</a>
-            </small>
+        <div class="sub-container">
+            <div class="title-row">
+                <div class="title-text">
+                    <strong>Facebook Messenger JSON Viewer</strong>
+                    <br>
+                    <small class="footer">
+                        © 2025 DuckCIT. All rights reserved |
+                        <a href="https://github.com/DuckCIT/Facebook-Messenger-JSON-Viewer" target="_blank">Src & Usage</a>
+                    </small>
+                </div>
+                <!-- settings button placed here so it stays outside the scrollable area -->
+                <button id="globalSettingsBtn" class="global-settings-btn" aria-label="Open settings" aria-expanded="false">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect class="bar vert" x="8" y="2" width="2" height="14" rx="1" fill="currentColor"/>
+                        <rect class="bar horiz" x="2" y="8" width="14" height="2" rx="1" fill="currentColor"/>
+                    </svg>
+                </button>
+            </div>
             <hr>
-            <small>Select a Messenger JSON file to view</small>
-            <input type="file" id="fileInput" accept=".json">
-            <small>Allow access to MEDIA folder<br>(Read the small words below)</small>
-            <input type="file" id="mediaFolder" webkitdirectory directory >
-            <small id="tips">if you want to see images or videos, check the box and select a folder, uploading the media
-                folder first helps improve performance and prevents repeated rendering of messages.</small>
-
-            <!-- Display Options -->
-            <div class="options">
+            <div class="settings">
+                <small>Select a Messenger JSON file to view</small>
+                <input type="file" id="fileInput" accept=".json">
                 <hr>
-                <span><strong>View from the perspective of:</strong></span>
-                <form id="radioForm" class="choiceForm"></form>
+                <small>Allow access to MEDIA folder</small>
+                <input type="file" id="mediaFolder" webkitdirectory directory>
+                <small id="tips">To view images or videos, click the button and select the folder containing them.</small>
+                <!-- Display Options -->
+                <div class="options">
+                    <hr>
+                    <span><strong>View from the perspective of:</strong></span>
+                    <form id="radioForm" class="choiceForm"></form>
+
+                    <hr>
+                    <span><strong>Customization</strong></span>
+                    <form>
+                        <label>
+                            <input type="checkbox" id="showMyName">
+                            Show my name
+                        </label>
+                        <label>
+                            <input type="checkbox" id="showTheirName" checked>
+                            Show their name
+                        </label>
+                        <label>
+                            <input type="checkbox" id="showTime">
+                            Show timestamps
+                        </label>
+                        <label>
+                            <input type="checkbox" id="showReacts" checked>
+                            Show reactions
+                        </label>
+                    </form>
+                </div>
 
                 <hr>
-                <span><strong>Customization</strong></span>
-                <form>
-                    <label>
-                        <input type="checkbox" id="showMyName">
-                        Show my name
-                    </label>
-                    <label>
-                        <input type="checkbox" id="showTheirName" checked>
-                        Show their name
-                    </label>
-                    <label>
-                        <input type="checkbox" id="showTime">
-                        Show timestamps
-                    </label>
-                    <label>
-                        <input type="checkbox" id="showReacts" checked>
-                        Show reactions
-                    </label>
-                </form>
+                <!-- Search -->
+                <div class="search-section">
+                    <strong>Search messages</strong>
+                    <div class="search-controls">
+                        <input type="search" id="searchInput"
+                            placeholder="(supports fuzzy, no-diacritics)">
+                        <button id="searchBtn">Search</button>
+                        <button id="clearSearchBtn" type="button">Clear</button>
+                    </div>
+                    <div id="searchProgress" class="search-progress" aria-hidden="true">
+                        <div class="bar">
+                            <div class="fill" style="width:0%"></div>
+                        </div>
+                        <div class="progress-text">Idle</div>
+                    </div>
+                    <div id="searchResults" class="search-results"></div>
+                </div>
+                <hr>
+                <div class="download-info">
+                    <strong>How to download Messenger JSON</strong>
+                    <a href="https://www.facebook.com/help/212802592074644" target="_blank">
+                        Download a copy of your Facebook information
+                    </a>
+                    <a href="https://www.facebook.com/help/messenger-app/677912386869109" target="_blank">
+                        Download your data from Messenger end-to-end encrypted chats
+                    </a>
+                </div>
             </div>
 
-            <!-- Download Information -->
-            <hr>
-            <div class="download-info">
-                <strong>How to download Messenger JSON</strong>
-                <a href="https://www.facebook.com/help/212802592074644" target="_blank">
-                    Download a copy of your Facebook information
-                </a>
-                <a href="https://www.facebook.com/help/messenger-app/677912386869109" target="_blank">
-                    Download your data from Messenger end-to-end encrypted chats
-                </a>
+            <!-- moved settings menu: anchored to this sub-container so it doesn't scroll -->
+            <div id="globalSettingsMenu" class="global-settings-menu" aria-hidden="true">
+                <div class="menu-section">
+                    <label class="menu-item">
+                        <span>Dark mode</span>
+                        <label class="switch">
+                            <input type="checkbox" id="darkModeToggle">
+                            <span class="slider"></span>
+                        </label>
+                    </label>
+                </div>
             </div>
         </div>
 
@@ -72,11 +114,41 @@
         <div class="chat-container">
             <h3>
                 Conversation: <span id="threadName">unknown</span>
-                <span id="settingsIcon">⇕</span>
             </h3>
             <div id="line"></div>
             <div id="chat"></div>
             <div id="loading">No data available</div>
+        </div>
+    </div>
+    
+    <!-- Trust & privacy dialog: appears on first load unless user disables it -->
+    <div id="trustModal" class="trust-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="trustTitle">
+        <div class="trust-backdrop" tabindex="-1"></div>
+        <div class="trust-card" role="document">
+            <header class="trust-header">
+                <h2 id="trustTitle">This tool runs locally — your data stays with you</h2>
+            </header>
+            <div class="trust-body">
+                <p>
+                    This is an open-source viewer published on GitHub and can be hosted as a GitHub Page. Files you
+                    select (message JSON or media folders) are processed entirely in your browser — nothing is uploaded
+                    or sent to any server by this application. The tool does not collect or transmit your messages,
+                    media, or metadata under any circumstance.
+                </p>
+                <p>
+                    If you'd prefer extra caution, you can download the repository and run the page offline (open the
+                    HTML file locally) or host it yourself. For full transparency the source code is available on
+                    GitHub.
+                </p>
+                <label class="trust-row"><input type="checkbox" id="dontShowAgain"> Don't show this again</label>
+            </div>
+            <footer class="trust-footer">
+                <a id="trustGitHub" class="btn-link" href="https://github.com/DuckCIT/Facebook-Messenger-JSON-Viewer" target="_blank" rel="noopener">View source on GitHub</a>
+                <div class="trust-actions">
+                    <button id="trustClose" class="btn btn-primary">Continue</button>
+                    <button id="trustCloseAlt" class="btn btn-secondary">Close</button>
+                </div>
+            </footer>
         </div>
     </div>
 
