@@ -8,6 +8,13 @@ const CHUNK_SIZE = 50;
 let renderedMessages = new Map();
 let observer = null;
 
+let __pdfState = {
+    running: false,
+    cancel: false,
+    blobUrl: null,
+    fileName: null
+};
+
 // Storage wrapper: namespace keys and fallback to cookies if localStorage unavailable
 const STORAGE_PREFIX = 'fmjv_' + (window.location.hostname || 'local') + '_';
 
@@ -46,6 +53,14 @@ function storageRemove(key) {
     const k = STORAGE_PREFIX + key;
     try { localStorage.removeItem(k); } catch(e) {}
     try { setCookie(k, '', -1); } catch(e) {}
+}
+
+function sanitizeFileName(name) {
+    return String(name || 'conversation')
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 140) || 'conversation';
 }
 
 function handleFileUpload(event) {
@@ -125,6 +140,10 @@ function setupChatInterface(data) {
     setupCheckboxListeners();
     // render using the selected perspective
     renderMessages(data, selectedValue);
+}
+
+function getSelectedPerspective() {
+    return (document.querySelector('input[name="choice"]:checked') || {}).value;
 }
 
 function setupRadioButtons(participants) {
@@ -433,6 +452,7 @@ window.addEventListener("beforeunload", () => {
     if (observer) observer.disconnect();
     Object.values(mediaFiles).forEach(url => URL.revokeObjectURL(url));
     renderedMessages.clear();
+    try { if (__pdfState.blobUrl) URL.revokeObjectURL(__pdfState.blobUrl); } catch(e) {}
 });
 
 // ------------------ Search implementation ------------------
@@ -912,3 +932,420 @@ document.addEventListener('keydown', (e) => {
 
 // Run on load
 try { showTrustModalIfNeeded(); } catch(e) {}
+
+// ------------------ Export PDF ------------------
+const exportPdfBtn = document.getElementById('exportPdfBtn');
+const pdfModal = document.getElementById('pdfModal');
+const pdfBackdrop = document.querySelector('.pdf-backdrop');
+const pdfStatus = document.getElementById('pdfStatus');
+const pdfProgressFill = document.getElementById('pdfProgressFill');
+const pdfPreview = document.getElementById('pdfPreview');
+const pdfPreviewFrame = document.getElementById('pdfPreviewFrame');
+const pdfCancelBtn = document.getElementById('pdfCancelBtn');
+const pdfDownloadBtn = document.getElementById('pdfDownloadBtn');
+const pdfCloseBtn = document.getElementById('pdfCloseBtn');
+
+function pdfSetProgress(percent, text) {
+    try {
+        if (typeof percent === 'number' && pdfProgressFill) pdfProgressFill.style.width = Math.max(0, Math.min(100, percent)) + '%';
+        if (pdfStatus && text) pdfStatus.innerText = text;
+    } catch(e) {}
+}
+
+function pdfResetUi() {
+    __pdfState.cancel = false;
+    __pdfState.running = false;
+    if (pdfDownloadBtn) pdfDownloadBtn.disabled = true;
+    if (pdfCancelBtn) pdfCancelBtn.disabled = false;
+    if (pdfCloseBtn) pdfCloseBtn.disabled = false;
+    if (pdfPreview) pdfPreview.setAttribute('aria-hidden', 'true');
+    if (pdfPreviewFrame) pdfPreviewFrame.removeAttribute('src');
+    try { if (__pdfState.blobUrl) URL.revokeObjectURL(__pdfState.blobUrl); } catch(e) {}
+    __pdfState.blobUrl = null;
+    __pdfState.fileName = null;
+    pdfSetProgress(0, 'Preparing...');
+}
+
+function pdfSetBusyState(isBusy, statusText) {
+    try {
+        // While busy: allow Cancel, disable Download.
+        // While not busy (idle): allow Close, keep Download disabled until we have a blob.
+        if (pdfCancelBtn) pdfCancelBtn.disabled = !isBusy;
+        if (pdfCloseBtn) pdfCloseBtn.disabled = false;
+        if (pdfDownloadBtn) pdfDownloadBtn.disabled = true;
+        if (statusText) pdfSetProgress(undefined, statusText);
+    } catch(e) {}
+}
+
+function pdfSetReadyState() {
+    try {
+        if (pdfCancelBtn) pdfCancelBtn.disabled = true;
+        if (pdfCloseBtn) pdfCloseBtn.disabled = false;
+        if (pdfDownloadBtn) pdfDownloadBtn.disabled = false;
+    } catch(e) {}
+}
+
+function openPdfModal() {
+    if (!pdfModal) return;
+    pdfModal.setAttribute('aria-hidden', 'false');
+}
+
+function closePdfModal() {
+    if (!pdfModal) return;
+    if (__pdfState.running) {
+        __pdfState.cancel = true;
+        pdfSetProgress(0, 'Cancelling...');
+        return;
+    }
+    pdfModal.setAttribute('aria-hidden', 'true');
+    pdfResetUi();
+}
+
+async function yieldToUi() {
+    await new Promise(r => setTimeout(r, 0));
+}
+
+function extractMessagePlainText(msg) {
+    const rawText = msg.text || msg.content || '';
+    const text = String(rawText || '').replace(/\s+/g, ' ').trim();
+    const timestamp = msg.timestamp || msg.timestamp_ms || 0;
+    const sender = msg.senderName || msg.sender_name || 'Unknown';
+    return { sender, text, timestamp };
+}
+
+async function buildChatPdf(data, selectedPerspective) {
+    const jspdfNs = window.jspdf;
+    const JsPdfCtor = jspdfNs && jspdfNs.jsPDF;
+    if (!JsPdfCtor) throw new Error('jsPDF not loaded');
+
+    const h2c = window.html2canvas;
+    if (!h2c) throw new Error('html2canvas not loaded');
+
+    const threadName = data.threadName || data.title || data.threadPath || 'Untitled';
+    const messages = Array.isArray(data.messages) ? data.messages : [];
+
+    const chatEl = document.getElementById('chat');
+    const chatContainerEl = document.querySelector('.chat-container');
+
+    const chatWidthPx = Math.max(680, Math.min(980, (chatEl && chatEl.clientWidth) ? chatEl.clientWidth : 860));
+    const a4Ratio = 297 / 210;
+
+    const pagePaddingPx = 10;
+    const pageWidthPx = chatWidthPx;
+    const pageHeightPx = Math.round(pageWidthPx * a4Ratio);
+    const viewportHeightPx = pageHeightPx;
+
+    const bg = (() => {
+        try {
+            const c = chatContainerEl ? getComputedStyle(chatContainerEl).backgroundColor : '';
+            return c || '#ffffff';
+        } catch(e) { return '#ffffff'; }
+    })();
+
+    const offscreen = document.createElement('div');
+    offscreen.style.position = 'fixed';
+    offscreen.style.left = '-10000px';
+    offscreen.style.top = '0';
+    offscreen.style.width = pageWidthPx + 'px';
+    offscreen.style.zIndex = '-1';
+    offscreen.style.background = bg;
+    offscreen.style.color = 'inherit';
+
+    const content = document.createElement('div');
+    content.style.boxSizing = 'border-box';
+    content.style.width = '100%';
+    content.style.padding = pagePaddingPx + 'px';
+    content.style.background = bg;
+
+    const header = document.createElement('div');
+    header.style.boxSizing = 'border-box';
+    header.style.width = '100%';
+    header.style.fontSize = '14px';
+    header.style.color = 'rgba(0,0,0,0.55)';
+    try {
+        const muted = getComputedStyle(document.documentElement).getPropertyValue('--muted');
+        if (muted) header.style.color = muted.trim();
+    } catch(e) {}
+    header.style.marginBottom = '8px';
+    header.textContent = `${threadName} — Exported ${new Date().toLocaleString()}`;
+    content.appendChild(header);
+
+    const messagesHost = document.createElement('div');
+    messagesHost.style.boxSizing = 'border-box';
+    messagesHost.style.width = '100%';
+    content.appendChild(messagesHost);
+
+    offscreen.appendChild(content);
+    document.body.appendChild(offscreen);
+
+    const showMyName = !!document.getElementById('showMyName')?.checked;
+    const showTheirName = !!document.getElementById('showTheirName')?.checked;
+    const showTime = !!document.getElementById('showTime')?.checked;
+    const showReacts = !!document.getElementById('showReacts')?.checked;
+
+    const total = messages.length;
+    const BUILD_BATCH = 200;
+    pdfSetProgress(0, 'Preparing DOM...');
+    await yieldToUi();
+
+    for (let i = 0; i < total; i++) {
+        if (__pdfState.cancel) {
+            try { offscreen.remove(); } catch(e) {}
+            throw new Error('cancelled');
+        }
+
+        const msg = messages[i];
+        const sender = msg.senderName || msg.sender_name || 'Unknown';
+        const fromMe = sender === selectedPerspective;
+
+        const div = document.createElement('div');
+        div.classList.add('message', fromMe ? 'from-me' : 'from-them');
+        div.innerHTML = createMessageHTML(msg, '');
+        messagesHost.appendChild(div);
+
+        // Apply checkbox visibility like in UI
+        try {
+            if (!showTime) div.querySelectorAll('.timestamp').forEach(el => (el.style.display = 'none'));
+            if (!showReacts) div.querySelectorAll('.reaction').forEach(el => (el.style.display = 'none'));
+            if (fromMe && !showMyName) div.querySelectorAll('.sender-name').forEach(el => (el.style.display = 'none'));
+            if (!fromMe && !showTheirName) div.querySelectorAll('.sender-name').forEach(el => (el.style.display = 'none'));
+        } catch(e) {}
+
+        if ((i + 1) % BUILD_BATCH === 0) {
+            const p = Math.round(((i + 1) / total) * 30);
+            pdfSetProgress(p, `Preparing DOM ${i + 1}/${total}...`);
+            await yieldToUi();
+        }
+    }
+
+    // Ensure layout is fully calculated
+    await yieldToUi();
+
+    // Replace audio/video elements with capture-friendly placeholders (html2canvas cannot reliably render media)
+    try {
+        messagesHost.querySelectorAll('audio').forEach(a => {
+            const ph = document.createElement('div');
+            ph.className = 'placeholder';
+            ph.textContent = '[Audio]';
+            a.replaceWith(ph);
+        });
+
+        messagesHost.querySelectorAll('video').forEach(v => {
+            const poster = v.getAttribute('poster');
+            if (poster) {
+                const img = document.createElement('img');
+                img.className = 'preview';
+                img.src = poster;
+                img.alt = 'Video thumbnail';
+                v.replaceWith(img);
+            } else {
+                const ph = document.createElement('div');
+                ph.className = 'placeholder';
+                ph.textContent = '[Video]';
+                v.replaceWith(ph);
+            }
+        });
+    } catch(e) {}
+
+    // Best-effort: wait briefly for images to load so capture matches UI
+    try {
+        const imgs = Array.from(messagesHost.querySelectorAll('img'));
+        const waits = imgs.map(img => new Promise(resolve => {
+            if (img.complete) return resolve();
+            const done = () => resolve();
+            img.addEventListener('load', done, { once: true });
+            img.addEventListener('error', done, { once: true });
+            setTimeout(done, 2500);
+        }));
+        await Promise.race([Promise.all(waits), new Promise(r => setTimeout(r, 2600))]);
+    } catch(e) {}
+
+    await yieldToUi();
+
+    const scrollHeight = Math.ceil(content.scrollHeight);
+
+    // Compute page breaks on message boundaries to reduce message splitting across pages.
+    const messageEls = Array.from(messagesHost.querySelectorAll('.message'));
+    const breaks = [0];
+    let startY = 0;
+    const maxPages = 500;
+    for (let guard = 0; guard < maxPages && startY < scrollHeight - 2; guard++) {
+        const limit = startY + viewportHeightPx;
+        let best = null;
+        for (const el of messageEls) {
+            // offsetTop is relative to messagesHost, so include host offset to match content scroll coords
+            const top = (messagesHost.offsetTop || 0) + el.offsetTop;
+            const bottom = top + el.offsetHeight;
+            if (bottom <= limit && top >= startY) {
+                best = bottom;
+            }
+            if (top > limit) break;
+        }
+        if (best === null || best <= startY + 60) {
+            // Fallback: if a single message is taller than a page, allow slicing.
+            best = Math.min(limit, scrollHeight);
+        }
+        if (best >= scrollHeight) {
+            breaks.push(scrollHeight);
+            break;
+        }
+        // small gap so next page doesn't start flush at the exact boundary
+        const nextStart = Math.min(best, scrollHeight);
+        breaks.push(nextStart);
+        startY = nextStart;
+    }
+
+    const pageCount = Math.max(1, breaks.length - 1);
+
+    const doc = new JsPdfCtor({ unit: 'pt', format: 'a4' });
+    const pageWidthPt = doc.internal.pageSize.getWidth();
+    const pageHeightPt = doc.internal.pageSize.getHeight();
+    const marginPt = 10;
+    const targetWidthPt = pageWidthPt - marginPt * 2;
+    const targetHeightPt = pageHeightPt - marginPt * 2;
+
+    // Render each page as a slice (pixel-perfect)
+    for (let pageIdx = 0; pageIdx < pageCount; pageIdx++) {
+        if (__pdfState.cancel) {
+            try { offscreen.remove(); } catch(e) {}
+            throw new Error('cancelled');
+        }
+
+        const sliceStart = breaks[pageIdx];
+
+        const slice = document.createElement('div');
+        slice.style.width = pageWidthPx + 'px';
+        slice.style.height = viewportHeightPx + 'px';
+        slice.style.overflow = 'hidden';
+        slice.style.background = bg;
+
+        const inner = content.cloneNode(true);
+        inner.style.transform = `translateY(-${sliceStart}px)`;
+        inner.style.transformOrigin = 'top left';
+        slice.appendChild(inner);
+        offscreen.appendChild(slice);
+
+        const canvas = await h2c(slice, {
+            backgroundColor: bg,
+            scale: Math.min(2, window.devicePixelRatio || 1),
+            useCORS: true,
+            logging: false
+        });
+
+        try { slice.remove(); } catch(e) {}
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        const imgW = targetWidthPt;
+        const imgH = Math.min(targetHeightPt, (canvas.height * imgW) / canvas.width);
+
+        if (pageIdx > 0) doc.addPage();
+        doc.addImage(imgData, 'JPEG', marginPt, marginPt, imgW, imgH, undefined, 'FAST');
+
+        const p = 30 + Math.round(((pageIdx + 1) / pageCount) * 70);
+        pdfSetProgress(p, `Rendering page ${pageIdx + 1}/${pageCount}...`);
+        await yieldToUi();
+    }
+
+    try { offscreen.remove(); } catch(e) {}
+
+    pdfSetProgress(100, 'Finalizing...');
+    await yieldToUi();
+
+    const blob = doc.output('blob');
+    const fileName = sanitizeFileName(threadName) + '.pdf';
+    return { blob, fileName };
+}
+
+async function startPdfExport() {
+    if (__pdfState.running) return;
+    if (!window.currentChatData || !window.currentChatData.messages) return;
+
+    const total = (window.currentChatData.messages || []).length;
+    if (!total) return;
+
+    // Guardrails to reduce crash risk on exact DOM rendering (html2canvas)
+    if (total > 12000) {
+        alert('This conversation is too large to export in "exact" mode safely. Please narrow down the data and try again.');
+        return;
+    }
+    if (total > 4000) {
+        const ok = confirm(`This export will include ${total} messages and may take a long time / use a lot of memory. Continue?`);
+        if (!ok) return;
+    }
+
+    openPdfModal();
+    pdfResetUi();
+    __pdfState.running = true;
+
+    try {
+        pdfSetBusyState(true, 'Preparing...');
+        pdfSetProgress(0, 'Preparing...');
+        await yieldToUi();
+
+        const selectedPerspective = getSelectedPerspective();
+        const { blob, fileName } = await buildChatPdf(window.currentChatData, selectedPerspective);
+        if (__pdfState.cancel) throw new Error('cancelled');
+
+        const url = URL.createObjectURL(blob);
+        __pdfState.blobUrl = url;
+        __pdfState.fileName = fileName;
+
+        if (pdfPreviewFrame) pdfPreviewFrame.src = url;
+        if (pdfPreview) pdfPreview.setAttribute('aria-hidden', 'false');
+        pdfSetReadyState();
+        pdfSetProgress(100, 'Ready. Preview below.');
+    } catch (e) {
+        if (String(e && e.message) === 'cancelled') {
+            pdfSetProgress(0, 'Cancelled.');
+        } else {
+            pdfSetProgress(0, 'Failed to export PDF.');
+        }
+    } finally {
+        __pdfState.running = false;
+        __pdfState.cancel = false;
+    }
+}
+
+function downloadPdf() {
+    if (!__pdfState.blobUrl || !__pdfState.fileName) return;
+    const a = document.createElement('a');
+    a.href = __pdfState.blobUrl;
+    a.download = __pdfState.fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+}
+
+exportPdfBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    startPdfExport();
+});
+
+pdfCancelBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (__pdfState.running) {
+        __pdfState.cancel = true;
+        try { if (pdfCancelBtn) pdfCancelBtn.disabled = true; } catch(e) {}
+        pdfSetProgress(0, 'Cancelling...');
+    }
+});
+
+pdfDownloadBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    downloadPdf();
+});
+
+pdfCloseBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    closePdfModal();
+});
+
+pdfBackdrop?.addEventListener('click', (e) => {
+    closePdfModal();
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && pdfModal && pdfModal.getAttribute('aria-hidden') === 'false') {
+        closePdfModal();
+    }
+});

@@ -64,6 +64,14 @@
                             Show reactions
                         </label>
                     </form>
+
+                    <hr>
+                    <span><strong>Export</strong></span>
+                    <div class="export-section">
+                        <button id="exportPdfBtn" class="btn btn-primary" type="button">Export to PDF</button>
+                        <small class="export-hint">Large conversations may take time. A preview will be shown before download.</small>
+                        <small class="export-note">PDF export is an experimental feature and may have limitations.</small>
+                    </div>
                 </div>
 
                 <hr>
@@ -152,6 +160,32 @@
         </div>
     </div>
 
+    <div id="pdfModal" class="pdf-modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pdfTitle">
+        <div class="pdf-backdrop" tabindex="-1"></div>
+        <div class="pdf-card" role="document">
+            <header class="pdf-header">
+                <h2 id="pdfTitle">Export PDF</h2>
+            </header>
+            <div class="pdf-body">
+                <div id="pdfProgress" class="pdf-progress">
+                    <div id="pdfStatus" class="pdf-status">Preparing...</div>
+                    <div class="pdf-progressbar"><div id="pdfProgressFill" class="fill" style="width:0%"></div></div>
+                </div>
+                <div class="pdf-note">Experimental: output is generated in-browser and may not perfectly capture some media.</div>
+                <div id="pdfPreview" class="pdf-preview" aria-hidden="true">
+                    <iframe id="pdfPreviewFrame" title="PDF preview" class="pdf-preview-frame"></iframe>
+                </div>
+            </div>
+            <footer class="pdf-footer">
+                <button id="pdfCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
+                <button id="pdfDownloadBtn" class="btn btn-primary" type="button" disabled>Download PDF</button>
+                <button id="pdfCloseBtn" class="btn btn-secondary" type="button">Close</button>
+            </footer>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="script.js"></script>
 </body>
 

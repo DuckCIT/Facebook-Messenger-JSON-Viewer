@@ -8,6 +8,7 @@ The Facebook Messenger JSON Viewer is a tool designed to help users view and ana
 - **User-Friendly Interface**: Displays messages in a clean and organized manner.
 - **Media Support**: Allows viewing of images, videos, and audio files.
 - **Customization Options**: Provides options to show/hide timestamps, sender names, and reactions.
+- **Export to PDF (Experimental)**: Export the rendered conversation to a PDF file with preview and progress.
 - **Responsive Design**: Adapts to different screen sizes for better usability on mobile devices.
 
 ## Usage
@@ -32,6 +33,15 @@ Users can customize the display of messages with the following options:
 - **Show Their Name**: Display or hide the other participants' names in the messages.
 - **Show Timestamps**: Display or hide the timestamps of the messages.
 - **Show Reactions**: Display or hide reactions to the messages.
+
+### Export to PDF (Experimental)
+The app can export the conversation view to PDF with a preview and progress indicator.
+
+Notes:
+- The PDF is generated entirely in your browser.
+- This feature is experimental and may have limitations.
+- Some media elements (especially audio/video) may be replaced by placeholders in the exported PDF.
+- Very large conversations may be blocked or require confirmation to avoid browser slowdowns.
 
 **DEMO**
 ![Demo](screenshots/demo.png)
