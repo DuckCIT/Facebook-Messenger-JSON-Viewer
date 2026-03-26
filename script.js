@@ -107,12 +107,7 @@ function processFileContent(content) {
         const isThreadPathFormat = content.includes('"thread_path"');
 
         if (isThreadPathFormat) {
-            const replaced = content.replace(/\\u00([a-f0-9]{2})|\\u([a-f0-9]{4})/gi, (match, p1, p2) => {
-                const code = p1 ? parseInt(p1, 16) : parseInt(p2, 16);
-                return String.fromCharCode(code);
-            });
-            const decoded = decodeURIComponent(escape(replaced));
-            data = JSON.parse(decoded);
+            data = JSON.parse(content);
             data.messages = data.messages.reverse();
         } else {
             data = JSON.parse(content);
@@ -392,9 +387,18 @@ function highlightText(original, query) {
     return out;
 }
 
+function fixEncoding(str) {
+    try {
+        const fixed = decodeURIComponent(escape(str)); // attempt to fix mis-encoded text
+        return fixed.includes("�") ? str : fixed; // fallback if decoding introduces errors
+    } catch {
+        return str; // return original if decoding fails
+    }
+}
+
 function createMessageHTML(msg, highlightQuery) {
     const sender = msg.senderName || msg.sender_name || "Unknown";
-    const rawText = msg.text || msg.content || "";
+    const rawText = fixEncoding(msg.text || msg.content || "");
     const text = highlightQuery ? highlightText(String(rawText), highlightQuery) : escapeHtml(String(rawText));
     const timestamp = msg.timestamp || msg.timestamp_ms || 0;
     // Combine all possible media arrays
